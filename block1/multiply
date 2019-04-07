@@ -1,0 +1,111 @@
+#!/bin/bash
+get_dims() {
+    temp_rows="temp_rows_file$$"
+    temp_cols="temp_cols_file$$"
+    lines=0
+    columns=0
+    while read line
+    do
+        lines=$(( lines + 1 ))
+        columns_in_line=0
+        for number in $line
+        do
+            columns_in_line=$(( columns_in_line + 1 ))
+        done
+        columns=$columns_in_line
+    done < $1
+    echo $lines > $temp_rows
+    echo $columns > $temp_cols
+}
+
+multiply() {
+    return=0
+    if [ ! $1 ]
+    then
+        echo "Two matrices must be provided as arguments" >&2
+        return=1
+    elif [ ! $2 ]
+    then
+        echo "A second matrix must be provided as an argument" >&2
+        return=2
+    elif [ $3 ]
+    then
+        echo "Only two arguments allowed" >&2
+        return=3
+    elif [ ! -f "$1" ]
+    then
+        echo "Cannot read file $1" >&2
+        return=1
+    elif [ ! -f "$2" ]
+    then
+        echo "Cannot read file $2" >&2
+        return=2
+    else
+        get_dims $1
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+        read -r m1_rows < $temp_rows
+        read -r m1_cols < $temp_cols
+        get_dims $2
+        read -r m2_rows < $temp_rows
+        read -r m2_cols < $temp_cols
+        rm $temp_rows
+        rm $temp_cols
+        if [ ! $m1_cols -eq $m2_rows ]
+        then
+            echo "Matrix dimensions do not allow for matrix multiplication" >&2
+            return=4
+        else
+            temp_matrix_output="temp_matrix_output_file$$"
+            output_row_counter=1
+            temp_mult_col="temp_mult_col_file$$"
+            first_number=1
+            while read m1_row
+            do
+                output_col_counter=1
+                for (( m2_col=1; m2_col<=$m2_cols; m2_col++ ))
+                do
+                    cut -f $m2_col $2 > $temp_mult_col
+                    row_idx=1
+                    sum=0
+                    for m1_num in $m1_row
+                    do
+                        col_idx=1
+                        while read m2_num
+                        do
+                            if [ $row_idx -eq $col_idx ]
+                            then
+                                product=$(( m1_num * m2_num ))
+                                sum=$(( sum + product ))
+                            fi
+                            col_idx=$(( col_idx + 1 ))
+                        done < $temp_mult_col
+                        row_idx=$(( row_idx + 1 ))
+                    done
+                    if [ $first_number -eq 1 ]
+                    then
+                        echo -n $sum > $temp_matrix_output
+                        first_number=0
+                    else
+                        echo -n $sum >> $temp_matrix_output
+                    fi
+                    if  [ ! $output_col_counter -eq $m2_cols ]
+                    then
+                        echo -e -n "\t" >> $temp_matrix_output
+                    fi
+                    output_col_counter=$(( output_col_counter + 1 ))
+                done
+                if  [ ! $output_row_counter -eq $m1_rows ]
+                then
+                    echo -e $"\r" >> $temp_matrix_output
+                fi
+                output_row_counter=$(( output_row_counter + 1 ))
+            done < $1
+            cat $temp_matrix_output
+            rm $temp_matrix_output
+            rm $temp_mult_col
+        fi
+    fi
+    return $return
+}
+multiply $1 $2 $3

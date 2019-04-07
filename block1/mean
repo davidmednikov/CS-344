@@ -1,0 +1,67 @@
+#!/bin/bash
+get_dims() {
+    temp_rows="temp_rows_file$$"
+    temp_cols="temp_cols_file$$"
+    lines=0
+    columns=0
+    while read line
+    do
+        lines=$(( lines + 1 ))
+        columns_in_line=0
+        for number in $line
+        do
+            columns_in_line=$(( columns_in_line + 1 ))
+        done
+        columns=$columns_in_line
+    done < $1
+    echo $lines > $temp_rows
+    echo $columns > $temp_cols
+}
+
+mean() {
+    return=0
+    if [ $2 ]
+    then
+        echo "Only one argument allowed" >&2
+        return=2
+    elif [ ! -f "$1" ]
+    then
+        echo "Cannot read file $1" >&2
+        return=1
+    else
+        get_dims $1
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+        read -r rows < $temp_rows
+        read -r cols < $temp_cols
+        rm $temp_rows
+        rm $temp_cols
+        temp_col="temp_col_file$$"
+        temp_row="temp_row_file$$"
+        for (( i=1; i<=$cols; i++ ))
+        do
+            cut -f $i $1 > $temp_col
+            sum=0
+            while read row
+            do
+                sum=$(( sum + row ))
+            done < $temp_col
+            average=$(( ( sum + ( rows / 2 ) * ( ( sum > 0 ) * 2 - 1 ) ) / rows ))
+            if [ $i -eq 1 ]
+            then
+                echo -e -n "$average\t" > $temp_row
+            else
+                echo -n $average >> $temp_row
+                if [ ! $i -eq $cols ]
+                then
+                    echo -e -n "\t" >> $temp_row
+                fi
+            fi
+        done
+        cat $temp_row
+        rm $temp_col
+        rm $temp_row
+    fi
+    return $return
+}
+mean $1 $2

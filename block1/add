@@ -1,0 +1,126 @@
+#!/bin/bash
+get_dims() {
+    temp_rows="temp_rows_file$$"
+    temp_cols="temp_cols_file$$"
+    lines=0
+    columns=0
+    while read line
+    do
+        lines=$(( lines + 1 ))
+        columns_in_line=0
+        for number in $line
+        do
+            columns_in_line=$(( columns_in_line + 1 ))
+        done
+        columns=$columns_in_line
+    done < $1
+    echo $lines > $temp_rows
+    echo $columns > $temp_cols
+}
+
+add() {
+    return=0
+    if [ ! $1 ]
+    then
+        echo "Two matrices must be provided as arguments" >&2
+        return=1
+    elif [ ! $2 ]
+    then
+        echo "A second matrix must be provided as an argument" >&2
+        return=2
+    elif [ $3 ]
+    then
+        echo "Only two arguments allowed" >&2
+        return=3
+    elif [ ! -f "$1" ]
+    then
+        echo "Cannot read file $1" >&2
+        return=1
+    elif [ ! -f "$2" ]
+    then
+        echo "Cannot read file $2" >&2
+        return=2
+    else
+        get_dims $1
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+        read -r m1_rows < $temp_rows
+        read -r m1_cols < $temp_cols
+        get_dims $2
+        read -r m2_rows < $temp_rows
+        read -r m2_cols < $temp_cols
+        rm $temp_rows
+        rm $temp_cols
+        if [ ! $m1_rows -eq $m2_rows ]
+        then
+            echo "Matrices do not have the same dimensions" >&2
+            return=4
+        elif [ ! $m1_cols -eq $m2_cols ]
+        then
+            echo "Matrices do not have the same dimensions" >&2
+            return=4
+        else
+            temp_matrix_output="temp_matrix_output_file$$"
+            temp_matrix_vals="temp_matrix_vals_file$$"
+            temp_col="temp_col_file$$"
+            first_number=1
+            while read line
+            do
+                for number in $line
+                do
+                    if [ $first_number -eq 1 ]
+                    then
+                        echo -e -n "$number\t" > $temp_matrix_vals
+                        first_number=0
+                    else
+                        echo -e -n "$number\t" >> $temp_matrix_vals
+                    fi
+                done
+            done < $1
+            echo -e $"\r" >> $temp_matrix_vals
+            while read line
+            do
+                for number in $line
+                do
+                    echo -n $number >> $temp_matrix_vals
+                    echo -e -n "\t" >> $temp_matrix_vals
+                done
+            done < $2
+            matrix_length=$(( $m1_cols * $m1_rows ))
+            first_number=1
+            for (( i=1; i<=$matrix_length; i++ ))
+            do
+                cut -f $i $temp_matrix_vals > $temp_col
+                sum=0
+                while read row
+                do
+                    sum=$(( sum + row ))
+                done < $temp_col
+                rm $temp_col
+                if [ $first_number -eq 1 ]
+                    then
+                        echo -n $sum > $temp_matrix_output
+                        first_number=0
+                    else
+                        echo -n $sum >> $temp_matrix_output
+                    fi
+                    modulus=$(( i % $m1_cols ))
+                    if [ $modulus  -eq 0 ]
+                    then
+                        last_number=$(( i - matrix_length ))
+                        if [ ! $last_number -eq 0 ]
+                        then
+                            echo -e $"\r" >> $temp_matrix_output
+                        fi
+                    else
+                        echo -n -e "\t" >> $temp_matrix_output
+                    fi
+            done
+            cat $temp_matrix_output
+            rm $temp_matrix_vals
+            rm $temp_matrix_output
+        fi
+    fi
+    return $return
+}
+add $1 $2 $3

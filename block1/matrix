@@ -1,0 +1,576 @@
+#!/bin/bash
+
+# utility function to calculate dimensions of a matrix
+# saves dimensions  to two temporary files for calling function to read
+get_dims() {
+    # create shortcuts to temporary files
+    temp_rows="temp_rows_file$$"
+    temp_cols="temp_cols_file$$"
+
+    # initialize dimensions counters
+    lines=0
+    columns=0
+
+    # read through matrix row by row
+    while read line
+    do
+        # increment rows counter
+        lines=$(( lines + 1 ))
+
+        # initialize column counter for row
+        columns_in_line=0
+
+        # iterate through row column by column
+        for number in $line
+        do
+            # increment column counter
+            columns_in_line=$(( columns_in_line + 1 ))
+        done
+        # store columns to global variable
+        columns=$columns_in_line
+    done < $1 # feed in matrix input
+
+    # save dimensions to temporary files
+    echo $lines > $temp_rows
+    echo $columns > $temp_cols
+}
+
+dims() {
+    # initialize return to 0
+    return=0
+
+    echo "==============================="
+    echo $#
+    echo "==============================="
+
+    # check for too many arguments
+    if [ $2 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Only one argument allowed" >&2
+        return=2
+    # throw error if file cannot be read
+    elif [ ! -f "$1" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Cannot read file $1" >&2
+        return=1
+    # arguments are valid
+    else
+        # get dimensions from utility function
+        get_dims $1
+        # create shortcut to temporary files containing dimensions
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+        # read dimensions from temporary files
+        read -r rows < $temp_rows
+        read -r cols < $temp_cols
+
+        # print dimensions to sdtout
+        echo "$rows $cols"
+
+        # delete temporary files
+        rm $temp_rows
+        rm $temp_cols
+    fi
+    return $return
+}
+
+transpose() {
+    # initialize return to 0
+    return=0
+
+    # check for too many arguments
+    if [ $2 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Only one argument allowed" >&2
+        return=2
+    # throw error if file cannot be read
+    elif [ ! -f "$1" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Cannot read file $1" >&2
+        return=1
+    # arguments are valid
+    else
+        # get dimensions from utility function
+        get_dims $1
+        # create shortcut to temporary files containing dimensions
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+        # read dimensions from temporary files
+        read -r rows < $temp_rows
+        read -r cols < $temp_cols
+        # delete temporary files
+        rm $temp_rows
+        rm $temp_cols
+
+        # create shortcuts to temporary files for rows and columns and output
+        temp_col="temp_col_file$$"
+        temp_row="temp_row_file$$"
+        temp_output="temp_output"
+
+        # loop through matrix one column at a time
+        for (( i=1; i<=$cols; i++ ))
+        do
+            # cut column and store to temporary file
+            cut -f $i $1 > $temp_col
+
+            # initialize output column index to 1
+            col_counter=1
+
+            # read through rows of column
+            while read row
+            do
+                # if first column of output row
+                if [ $col_counter -eq 1 ]
+                then
+                    # write number to temporary file
+                    echo -n $row > $temp_row
+                # not first number of row
+                else
+                    # append number to temporary file
+                    echo -n $row >> $temp_row
+                fi
+
+                # if not last column of output row
+                if [ ! $col_counter -eq $rows ]
+                then
+                    # append a tab to output row
+                    echo -e -n "\t" >> $temp_row
+                fi
+
+                # increment index counter
+                col_counter=$(( col_counter + 1 ))
+            done < $temp_col # feed in cut column
+
+            # if first output row
+            if [ $i -eq 1 ]
+            then
+                # write row to temporary file
+                cat $temp_row > temp_output
+            # not first output row
+            else
+                # append row to temporary file
+                cat $temp_row >> temp_output
+            fi
+
+            echo -e -n $"\n" >> $temp_output
+        done
+        # print contents of output array to stdout
+        cat $temp_output
+
+        # delete temporary files
+        rm $temp_col
+        rm $temp_row
+        rm $temp_output
+    fi
+    return $return
+}
+
+mean() {
+    # initialize return to 0
+    return=0
+
+    # check for too many arguments
+    if [ $2 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Only one argument allowed" >&2
+        return=2
+    # throw error if file cannot be read
+    elif [ ! -f "$1" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Cannot read file $1" >&2
+        return=1
+    # arguments are valid
+    else
+        # get dimensions from utility function
+        get_dims $1
+        # create shortcut to temporary files containing dimensions
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+        # read dimensions from temporary files
+        read -r rows < $temp_rows
+        read -r cols < $temp_cols
+        # delete temporary files
+        rm $temp_rows
+        rm $temp_cols
+
+        # initialize temporary files to store columns and rows
+        temp_col="temp_col_file$$"
+        temp_row="temp_row_file$$"
+
+        # loop through each column
+        for (( i=1; i<=$cols; i++ ))
+        do
+            # cut current column to temporary file
+            cut -f $i $1 > $temp_col
+
+            # initialize sum to 0
+            sum=0
+
+            # loop through column and get running sum
+            while read row
+            do
+                sum=$(( sum + row ))
+            done < $temp_col # feed in column
+
+            # calculated average rounded away from 0
+            average=$(( ( sum + ( rows / 2 ) * ( ( sum > 0 ) * 2 - 1 ) ) / rows ))
+
+            # check if first column
+            if [ $i -eq 1 ]
+            then
+                # store average to temporary file and append tab
+                echo -e -n "$average\t" > $temp_row
+            else
+                # append average to temporary file
+                echo -n $average >> $temp_row
+
+                # if not last column
+                if [ ! $i -eq $cols ]
+                then
+                    # append tab to temporary file
+                    echo -e -n "\t" >> $temp_row
+                else
+                    # append newline to end of row
+                    echo -e -n "\n" >> $temp_row
+                fi
+            fi
+        done
+
+        # print output file to stdout
+        cat $temp_row
+
+        # remove temporary files
+        rm $temp_col
+        rm $temp_row
+    fi
+    return $return
+}
+
+add() {
+    # initialize return to 0
+    return=0
+    # check for first argument missing
+    if [ ! $1 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Two matrices must be provided as arguments" >&2
+        return=1
+    # check for second argument missing
+    elif [ ! $2 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "A second matrix must be provided as an argument" >&2
+        return=2
+    # check for too many arguments
+    elif [ $3 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Only two arguments allowed" >&2
+        return=3
+    # throw error if file 1 cannot be read
+    elif [ ! -f "$1" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Cannot read file $1" >&2
+        return=1
+    # throw error if file 1 cannot be read
+    elif [ ! -f "$2" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Cannot read file $2" >&2
+        return=2
+    # arguments are valid
+    else
+        # create shortcut to temporary files containing dimensions
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+
+        # get matrix 1 dimensions from utility function
+        get_dims $1
+        # read matrix 1 dimensions from temporary files
+        read -r m1_rows < $temp_rows
+        read -r m1_cols < $temp_cols
+
+        # get matrix 2 dimensions from utility function
+        get_dims $2
+        # read matrix 2 dimensions from temporary files
+        read -r m2_rows < $temp_rows
+        read -r m2_cols < $temp_cols
+
+        # remove temporary files
+        rm $temp_rows
+        rm $temp_cols
+
+        # ensure that matrices have the same number of rows
+        if [ ! $m1_rows -eq $m2_rows ]
+        then
+            # print error to stderr and set return value != 0
+            echo "Matrices do not have the same dimensions" >&2
+            return=4
+        # ensure that matrices have the same number of columns
+        elif [ ! $m1_cols -eq $m2_cols ]
+        then
+            # print error to stderr and set return value != 0
+            echo "Matrices do not have the same dimensions" >&2
+            return=4
+        # readable input and matching dimensions, find product
+        else
+            # initialize shortcuts and flag variables
+            temp_matrix_output="temp_matrix_output_file$$"
+            temp_matrix_vals="temp_matrix_vals_file$$"
+            temp_col="temp_col_file$$"
+            first_number=1
+
+            # loop through matrix 1
+            while read line
+            do
+                # for each number in row
+                for number in $line
+                do
+                    # if first number
+                    if [ $first_number -eq 1 ]
+                    then
+                        # store first number and tab to temporary file and set flag to false
+                        echo -e -n "$number\t" > $temp_matrix_vals
+                        first_number=0
+                    # not first number
+                    else
+                        # append number and tab to temporary file
+                        echo -e -n "$number\t" >> $temp_matrix_vals
+                    fi
+                done
+            done < $1 # feed from matrix 1
+
+            # append newline to temporary file
+            echo -e $"\n" >> $temp_matrix_vals
+
+            # loop through matrix 2
+            while read line
+            do
+                # for each number in row
+                for number in $line
+                do
+                    # append number and tab to temporary file
+                    echo -e -n "$number\t" >> $temp_matrix_vals
+                done
+            done < $2 # feed from matrix 2
+
+            # calculate total number of elements in matrix
+            matrix_length=$(( $m1_cols * $m1_rows ))
+
+            # initialize first number flag
+            first_number=1
+
+            # loop through all elements in matrix
+            for (( i=1; i<=$matrix_length; i++ ))
+            do
+                # cut current column which contains corresponding values in the two matrices
+                cut -f $i $temp_matrix_vals > $temp_col
+
+                # initialize sum to 0
+                sum=0
+
+                # read each row of temporary column
+                while read row
+                do
+                    # add current row to running sum
+                    sum=$(( sum + row ))
+                done < $temp_col # feed in temporary column
+
+                # remove temporary file
+                rm $temp_col
+
+                # if first number flag is true
+                if [ $first_number -eq 1 ]
+                    then
+                        # store first number to temporary file and set flag to false
+                        echo -n $sum > $temp_matrix_output
+                        first_number=0
+                    else
+                        # append number to temporary file
+                        echo -n $sum >> $temp_matrix_output
+                    fi
+
+                    # modulus to keep track of new lines
+                    modulus=$(( i % $m1_cols ))
+
+                    # if last column of row
+                    if [ $modulus  -eq 0 ]
+                    then
+                        # append newline to output
+                        echo -e -n $"\n" >> $temp_matrix_output
+                    # not last column
+                    else
+                        # append tab to output
+                        echo -n -e "\t" >> $temp_matrix_output
+                    fi
+            done
+            # print matrix to stdout
+            cat $temp_matrix_output
+
+            # remove temporary variables
+            rm $temp_matrix_vals
+            rm $temp_matrix_output
+        fi
+    fi
+    return $return
+}
+
+multiply() {
+    # initialize return to 0
+    return=0
+    # check for first argument missing
+    if [ ! $1 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Two matrices must be provided as arguments" >&2
+        return=1
+    # check for second argument missing
+    elif [ ! $2 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "A second matrix must be provided as an argument" >&2
+        return=2
+    # check for too many arguments
+    elif [ $3 ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Only two arguments allowed" >&2
+        return=3
+    # throw error if file 1 cannot be read
+    elif [ ! -f "$1" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Cannot read file $1" >&2
+        return=1
+    # throw error if file 1 cannot be read
+    elif [ ! -f "$2" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Cannot read file $2" >&2
+        return=2
+    # arguments are valid
+    else
+        # create shortcut to temporary files containing dimensions
+        temp_rows="temp_rows_file$$"
+        temp_cols="temp_cols_file$$"
+
+        # get matrix 1 dimensions from utility function
+        get_dims $1
+        # read matrix 1 dimensions from temporary files
+        read -r m1_rows < $temp_rows
+        read -r m1_cols < $temp_cols
+
+        # get matrix 2 dimensions from utility function
+        get_dims $2
+        # read matrix 2 dimensions from temporary files
+        read -r m2_rows < $temp_rows
+        read -r m2_cols < $temp_cols
+
+        # remove temporary files
+        rm $temp_rows
+        rm $temp_cols
+
+        # ensure that dimensions are valid for matrix multiplication (m1_rows == m2_cols)
+        if [ ! $m1_cols -eq $m2_rows ]
+        then
+            # print error to stderr and set return value != 0
+            echo "Matrix dimensions do not allow for matrix multiplication" >&2
+            return=4
+        # readable input and valid dimensions, find product
+        else
+            # initialize shortcuts and flag variables
+            temp_matrix_output="temp_matrix_output_file$$"
+            temp_mult_col="temp_mult_col_file$$"
+            output_row_counter=1
+            first_number=1
+
+            # loop through rows of matrix 1
+            while read m1_row
+            do
+                # initialize column counter
+                output_col_counter=1
+
+                # loop through each column for each row
+                for (( m2_col=1; m2_col<=$m2_cols; m2_col++ ))
+                do
+                    # cut current column to temporary file
+                    cut -f $m2_col $2 > $temp_mult_col
+
+                    # initialize row_idx and sum variables
+                    row_idx=1
+                    sum=0
+
+                    # loop through each number in matrix 1 row
+                    for m1_num in $m1_row
+                    do
+                        # initialize column counter
+                        col_idx=1
+
+                        # read each number in column
+                        while read m2_num
+                        do
+                            # if row and column indexes are equal, multiply for cross product
+                            if [ $row_idx -eq $col_idx ]
+                            then
+                                # multiply terms and add to running sum
+                                product=$(( m1_num * m2_num ))
+                                sum=$(( sum + product ))
+                            fi
+
+                            # increment column counter
+                            col_idx=$(( col_idx + 1 ))
+                        done < $temp_mult_col # feed in column
+
+                        # increment column counter
+                        row_idx=$(( row_idx + 1 ))
+                    done
+
+                    # if first number
+                    if [ $first_number -eq 1 ]
+                    then
+                        # write first sum to temporary output file
+                        echo -n $sum > $temp_matrix_output
+                        first_number=0
+                    # not first number
+                    else
+                        # append sum to temporary output file
+                        echo -n $sum >> $temp_matrix_output
+                    fi
+
+                    # check if not last column
+                    if  [ ! $output_col_counter -eq $m2_cols ]
+                    then
+                        # append tab to output file
+                        echo -e -n "\t" >> $temp_matrix_output
+                    fi
+
+                    # increment column counter
+                    output_col_counter=$(( output_col_counter + 1 ))
+                done
+
+                # append newline to output file
+                echo -e -n $"\n" >> $temp_matrix_output
+
+                # increment row counter
+                output_row_counter=$(( output_row_counter + 1 ))
+            done < $1 # feed in first matrix
+
+            # print cross product matrix to stdout
+            cat $temp_matrix_output
+
+            # remove temporary files
+            rm $temp_matrix_output
+            rm $temp_mult_col
+        fi
+    fi
+    return $return
+}
+
+$1 "${@:2}"
