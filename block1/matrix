@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# traps for interrupt, hangup, and terminate
+trap "rm -f temp*$$; echo 'SIGINT received: Deleting temp files then exiting!'; exit 1" SIGINT
+trap "rm -f temp*$$; echo 'SIGHUP received: Deleting temp files then exiting!'; exit 1" SIGHUP
+trap "rm -f temp*$$; echo 'SIGTERM received: Deleting temp files then exiting!'; exit 1" SIGTERM
+
 # utility function to calculate dimensions of a matrix
 # saves dimensions  to two temporary files for calling function to read
 get_dims() {
@@ -39,10 +44,6 @@ dims() {
     # initialize return to 0
     return=0
 
-    echo "==============================="
-    echo $#
-    echo "==============================="
-
     # check for too many arguments
     if [ $2 ]
     then
@@ -50,7 +51,7 @@ dims() {
         echo "Only one argument allowed" >&2
         return=2
     # throw error if file cannot be read
-    elif [ ! -f "$1" ]
+    elif [ ! -r "$1" ]
     then
         # print error to stderr and set return value != 0
         echo "Cannot read file $1" >&2
@@ -87,7 +88,7 @@ transpose() {
         echo "Only one argument allowed" >&2
         return=2
     # throw error if file cannot be read
-    elif [ ! -f "$1" ]
+    elif [ ! -r "$1" ]
     then
         # print error to stderr and set return value != 0
         echo "Cannot read file $1" >&2
@@ -180,7 +181,7 @@ mean() {
         echo "Only one argument allowed" >&2
         return=2
     # throw error if file cannot be read
-    elif [ ! -f "$1" ]
+    elif [ ! -r "$1" ]
     then
         # print error to stderr and set return value != 0
         echo "Cannot read file $1" >&2
@@ -274,13 +275,13 @@ add() {
         echo "Only two arguments allowed" >&2
         return=3
     # throw error if file 1 cannot be read
-    elif [ ! -f "$1" ]
+    elif [ ! -r "$1" ]
     then
         # print error to stderr and set return value != 0
         echo "Cannot read file $1" >&2
         return=1
     # throw error if file 1 cannot be read
-    elif [ ! -f "$2" ]
+    elif [ ! -r "$2" ]
     then
         # print error to stderr and set return value != 0
         echo "Cannot read file $2" >&2
@@ -444,13 +445,13 @@ multiply() {
         echo "Only two arguments allowed" >&2
         return=3
     # throw error if file 1 cannot be read
-    elif [ ! -f "$1" ]
+    elif [ ! -r "$1" ]
     then
         # print error to stderr and set return value != 0
         echo "Cannot read file $1" >&2
         return=1
     # throw error if file 1 cannot be read
-    elif [ ! -f "$2" ]
+    elif [ ! -r "$2" ]
     then
         # print error to stderr and set return value != 0
         echo "Cannot read file $2" >&2
@@ -573,4 +574,30 @@ multiply() {
     return $return
 }
 
-$1 "${@:2}"
+# if only one argument passed in, get input from stdin
+if [ "$#" = "1" ]
+then
+    # if called function is add, thrown an error. need 2 args
+    if [ "$1" = "add" ]
+    then
+        # print error to stderr and set return value != 0
+        echo "Provide two arguments when invoking add." >&2
+        exit 1
+    else
+        # if command is known, get the input from stdin
+        if [ "$1" = "transpose" ] || [ "$1" = "mean" ] || [ "$1" = "dims" ]
+        then
+            temp_stdin="temp_stdin_file$$"
+            cat > "$temp_stdin"
+            $1 "$temp_stdin"
+            rm $temp_stdin
+        # command is not known (assuming no args), throw error and quit
+        else
+            echo "Unrecognized command, at least with those inputs!" >&2
+            exit 1
+        fi
+    fi
+else
+    # more than 1 runtime argument passed
+    $1 "${@:2}"
+fi
