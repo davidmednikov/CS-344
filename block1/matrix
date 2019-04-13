@@ -13,11 +13,11 @@ trap "rm -f temp*$$; echo 'SIGTERM received: Deleting temp files then exiting!';
 
 
 # get_dims Function
-# -----------------------------------
+# ----------------------------------------------------
 # utility function to calculate dimensions of a matrix
 # args: 1 valid matrix
 # output: two temporary files, one for # of rows, one for # of columns
-# -----------------------------------
+# ----------------------------------------------------
 get_dims() {
     # create shortcuts to temporary files
     temp_rows="temp_rows_file$$"
@@ -53,10 +53,10 @@ get_dims() {
 
 
 # dims Function
-# -----------------------------------
+# ----------------------------------------------------
 # args: 1 valid matrix
 # output: prints <rows> <columns> to stdout
-# -----------------------------------
+# ----------------------------------------------------
 dims() {
     # initialize return to 0
     return=0
@@ -96,10 +96,10 @@ dims() {
 
 
 # transpose Function
-# -----------------------------------
+# ----------------------------------------------------
 # args: 1 valid matrix
 # output: tranposed matrix (rows become cols and cols become rows) printed to stdout
-# -----------------------------------
+# ----------------------------------------------------
 transpose() {
     # initialize return to 0
     return=0
@@ -195,10 +195,10 @@ transpose() {
 
 
 # mean Function
-# -----------------------------------
+# ----------------------------------------------------
 # args: 1 valid matrix
 # output: 1-row matrix with average of each column printed to stdout
-# -----------------------------------
+# ----------------------------------------------------
 mean() {
     # initialize return to 0
     return=0
@@ -284,10 +284,10 @@ mean() {
 
 
 # add Function
-# -----------------------------------
+# ----------------------------------------------------
 # args: 2 valid matrices
 # output: 1 matrix that is the sum of the two inputs, printed to stdout
-# -----------------------------------
+# ----------------------------------------------------
 add() {
     # initialize return to 0
     return=0
@@ -460,10 +460,10 @@ add() {
 
 
 # add Function
-# -----------------------------------
+# ----------------------------------------------------
 # args: 2 valid matrices
 # output: 1 matrix that is the product of the two inputs, printed to stdout
-# -----------------------------------
+# ----------------------------------------------------
 multiply() {
     # initialize return to 0
     return=0
