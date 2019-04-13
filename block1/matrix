@@ -1,12 +1,23 @@
 #!/bin/bash
 
+# #####################################################
+# Program 1 - matrices
+# David Mednikov
+# CS344 Spring 2019
+# #####################################################
+
 # traps for interrupt, hangup, and terminate
 trap "rm -f temp*$$; echo 'SIGINT received: Deleting temp files then exiting!'; exit 1" SIGINT
 trap "rm -f temp*$$; echo 'SIGHUP received: Deleting temp files then exiting!'; exit 1" SIGHUP
 trap "rm -f temp*$$; echo 'SIGTERM received: Deleting temp files then exiting!'; exit 1" SIGTERM
 
+
+# get_dims Function
+# -----------------------------------
 # utility function to calculate dimensions of a matrix
-# saves dimensions  to two temporary files for calling function to read
+# args: 1 valid matrix
+# output: two temporary files, one for # of rows, one for # of columns
+# -----------------------------------
 get_dims() {
     # create shortcuts to temporary files
     temp_rows="temp_rows_file$$"
@@ -40,6 +51,12 @@ get_dims() {
     echo $columns > $temp_cols
 }
 
+
+# dims Function
+# -----------------------------------
+# args: 1 valid matrix
+# output: prints <rows> <columns> to stdout
+# -----------------------------------
 dims() {
     # initialize return to 0
     return=0
@@ -77,6 +94,12 @@ dims() {
     return $return
 }
 
+
+# transpose Function
+# -----------------------------------
+# args: 1 valid matrix
+# output: tranposed matrix (rows become cols and cols become rows) printed to stdout
+# -----------------------------------
 transpose() {
     # initialize return to 0
     return=0
@@ -170,6 +193,12 @@ transpose() {
     return $return
 }
 
+
+# mean Function
+# -----------------------------------
+# args: 1 valid matrix
+# output: 1-row matrix with average of each column printed to stdout
+# -----------------------------------
 mean() {
     # initialize return to 0
     return=0
@@ -253,6 +282,12 @@ mean() {
     return $return
 }
 
+
+# add Function
+# -----------------------------------
+# args: 2 valid matrices
+# output: 1 matrix that is the sum of the two inputs, printed to stdout
+# -----------------------------------
 add() {
     # initialize return to 0
     return=0
@@ -423,6 +458,12 @@ add() {
     return $return
 }
 
+
+# add Function
+# -----------------------------------
+# args: 2 valid matrices
+# output: 1 matrix that is the product of the two inputs, printed to stdout
+# -----------------------------------
 multiply() {
     # initialize return to 0
     return=0
