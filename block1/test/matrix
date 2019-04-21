@@ -459,7 +459,7 @@ add() {
 }
 
 
-# multiply Function
+# add Function
 # ----------------------------------------------------
 # args: 2 valid matrices
 # output: 1 matrix that is the product of the two inputs, printed to stdout
