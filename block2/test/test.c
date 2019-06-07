@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -164,8 +165,6 @@ void readRooms(char* newestDir) {
             }
             /* add room to static rooms list */
             roomsList[i] = room;
-
-            fclose(file);
         }
     }
 }
@@ -274,10 +273,6 @@ void printRound(int roomId) {
 ** ----------------------------------------------------
 */
 void* getTime(void * arg) {
-    /* try to lock mutex */
-    int resultCode = pthread_mutex_lock(&timeMutex);
-    assert(resultCode == 0);
-
     /* get current unix time */
     time_t seconds = time(NULL);
 
@@ -287,7 +282,11 @@ void* getTime(void * arg) {
     /* format time per spec and save to string */
     strftime(timeString, 40, "%l:%M%P, %A, %B %d, %Y", localtime(&seconds));
 
-    /* mopen file for writing and write time string to file */
+    /* try to lock mutex */
+    int resultCode = pthread_mutex_lock(&timeMutex);
+    assert(resultCode == 0);
+
+    /* mutex locked, open file for writing and write time string to file */
     FILE* file = fopen("currentTime.txt", "w");
     fprintf(file, "%s", timeString);
     fclose(file);
@@ -313,14 +312,12 @@ int getNextRoom(int currentRoom) {
     while (true) {
         /* print query and get user's input */
         printf("WHERE TO? >");
-        fgets(input, 32, stdin);
 
         /* remove white space and copy to name */
         char name[32];
-        sscanf(input, "%s\n", name);
 
         /* get roomId of passed in name */
-        int roomId = getRoomId(name);
+        int roomId = -1;
 
         /* if user entered 'time' */
         if (roomId == -1) {
@@ -346,6 +343,9 @@ int getNextRoom(int currentRoom) {
             assert(lockResult == 0);
             int newThreadResultCode = pthread_create(&timeThread, NULL, getTime, NULL);
             assert(newThreadResultCode == 0);
+
+            /* time doesn't count as a step, so show rooms again and prompt for input */
+            printRound(currentRoom);
         } else if (roomId == -2 || strlen(name) != strlen(roomsList[roomId]->name)) {
             /* if room was not found or passed-in name was not the same length as the room name,
                print error and show room prompt again, then go back to top of loop */
@@ -382,19 +382,6 @@ int getNextRoom(int currentRoom) {
 }
 
 
-void freeMemory() {
-    int i;
-    for (i = 0; i < 7; i++) {
-        struct Room* room = roomsList[i];
-        int j;
-        for (j = 0; j < room->numberOutboundConnections; j++) {
-            free(room->connectionNames[j]);
-        }
-        free(roomsList[i]);
-    }
-}
-
-
 /*
 ** playGame Function
 ** ----------------------------------------------------
@@ -404,10 +391,8 @@ void freeMemory() {
 ** ----------------------------------------------------
 */
 void playGame() {
-    /* lock the mutex */
     pthread_mutex_lock(&timeMutex);
 
-    /* create time thread */
     int resultCode = pthread_create(&timeThread, NULL, getTime, NULL);
     assert(resultCode == 0);
 
@@ -479,8 +464,6 @@ int main() {
 
     /* play the game! */
     playGame();
-
-    freeMemory();
 
     return 0;
 }
