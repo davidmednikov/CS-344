@@ -6,7 +6,7 @@
 //
 // otp_dec
 //
-// This program takes an encrypted file and key
+// This program takes an encrypted file and encryption key
 // as runtime arguments and sends them to a server for
 // decoding. After getting the decoded string back,
 // it is printed to stdout.
@@ -32,22 +32,22 @@
 ** ----------------------------------------------------
 */
 void error(const char* error) {
-    fprintf(stderr, error);
+    fprintf(stderr, "%s", error);
 }
 
 /*
 ** checkIfKeyTooShort Function
 ** ----------------------------------------------------
-** function to check if the key is shorter than the text
+** function to check if the key is shorter than the ciphertext
 ** throws an error and exits if key is too short
-** params: string text, string key, string keyName
+** params: string ciphertext, string key, string keyName
 ** returns: void
 ** ----------------------------------------------------
 */
-void checkIfKeyTooShort(char* text, char* key, char* keyName) {
-    // if length of key is less than length of text, print error and exit
-    if (strlen(key) < strlen(text)) {
-        fprintf(stderr, "otp_dec Error: key '%s' is too short\n", keyName);
+void checkIfKeyTooShort(char* ciphertext, char* key, char* keyFile) {
+    // if length of key is less than length of ciphertext, print error and exit
+    if (strlen(key) < strlen(ciphertext)) {
+        fprintf(stderr, "otp_dec: ERROR key '%s' is too short\n", keyFile);
         exit(1);
     }
 }
@@ -55,22 +55,22 @@ void checkIfKeyTooShort(char* text, char* key, char* keyName) {
 /*
 ** checkIfContainsBadText Function
 ** ----------------------------------------------------
-** function to check if the plaintext or key contain any
+** function to check if the ciphertext or key contain any
 ** characters that are considered "bad" input. Any character
 ** other than capital A-Z or space is considered "bad" data
-** params: string text, string key, string textName, string keyName
+** params: string ciphertext, string key, string ciphertextFile, string keyFile
 ** returns: void
 ** ----------------------------------------------------
 */
-void checkIfContainsBadText(char* text, char* key, char* textName, char* keyName) {
+void checkIfContainsBadText(char* ciphertext, char* key, char* ciphertextFile, char* keyFile) {
     // iterator variable
     int i;
 
-    // loop through text to see if it contains bad input
-    for (i = 0; i < strlen(text); i++) {
+    // loop through ciphertext to see if it contains bad input
+    for (i = 0; i < strlen(ciphertext); i++) {
         // if any character is not A-Z or a space, it is bad input
-        if (text[i] != 32 && (text[i] < 65 || text[i] > 90)) {
-            fprintf(stderr, "otp_dec Error: text '%s' contains bad characters\n", textName);
+        if (ciphertext[i] != 32 && (ciphertext[i] < 65 || ciphertext[i] > 90)) {
+            fprintf(stderr, "otp_dec: ERROR ciphertext '%s' contains bad characters\n", ciphertextFile);
             exit(1);
         }
     }
@@ -79,7 +79,7 @@ void checkIfContainsBadText(char* text, char* key, char* textName, char* keyName
     for (i = 0; i < strlen(key); i++) {
         // if any character is not A-Z or a space, it is bad input
         if (key[i] != 32 && (key[i] < 65 || key[i] > 90)) {
-            fprintf(stderr, "otp_dec Error: key '%s' contains bad characters\n", keyName);
+            fprintf(stderr, "otp_dec: ERROR key '%s' contains bad characters\n", keyFile);
             exit(1);
         }
     }
@@ -88,17 +88,17 @@ void checkIfContainsBadText(char* text, char* key, char* textName, char* keyName
 /*
 ** inputIsValid Function
 ** ----------------------------------------------------
-** function to verify that the provided plaintext and key
+** function to verify that the provided ciphertext and key
 ** files are valid according to program specifications
-** params: string text, string key
+** params: string ciphertext, string key
 ** returns: true if valid, false if not
 ** ----------------------------------------------------
 */
-void inputIsValid(char* text, char* key, char* textName, char* keyName) {
-    // if key is shorter than text, display error and exit
-    checkIfKeyTooShort(text, key, keyName);
+void inputIsValid(char* ciphertext, char* key, char* ciphertextFile, char* keyFile) {
+    // if key is shorter than ciphertext, display error and exit
+    checkIfKeyTooShort(ciphertext, key, keyFile);
     // if bad input, display error and exit
-    checkIfContainsBadText(text, key, textName, keyName);
+    checkIfContainsBadText(ciphertext, key, ciphertextFile, keyFile);
 }
 
 /*
@@ -111,7 +111,7 @@ void inputIsValid(char* text, char* key, char* textName, char* keyName) {
 int main (int argc, char* argv[]) {
     // if arg count is wrong, display message showing correct usage to user
     if (argc != 4) {
-        error("USAGE: otp_dec <plaintext_file> <key> <port_number>\n");
+        error("USAGE: otp_dec <ciphertext_file> <key> <port_number>\n");
         exit(1);
     }
 
@@ -122,22 +122,21 @@ int main (int argc, char* argv[]) {
     int charsRead;
 
     struct sockaddr_in serverAddress;
-    struct hostent* serverHostInfo;
 
     char buffer[131072];
 
-    FILE* plaintextFile;
+    FILE* ciphertextFile;
     FILE* keyFile;
 
     portNumber = atoi(argv[3]);
 
-    // try opening plaintext file
-    plaintextFile = fopen(argv[1], "r");
-    if (plaintextFile != NULL) {
-        // plaintext file opened successfully, try to open key file
+    // try opening ciphertext file
+    ciphertextFile = fopen(argv[1], "r");
+    if (ciphertextFile != NULL) {
+        // ciphertext file opened successfully, try to open key file
         keyFile = fopen(argv[2], "r");
         if (keyFile != NULL) {
-            // key file opened successfully, send plaintext and key to server
+            // key file opened successfully, send ciphertext and key to server
 
             // clear out memory in server address struct
             memset((char*) &serverAddress, '\0', sizeof(serverAddress));
@@ -157,7 +156,7 @@ int main (int argc, char* argv[]) {
             // connect to socket and print error if failed
             if (connect(socketFD, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
                 // error encountered while connecting to socket
-                fprintf(stderr, "otp_dec: Error connecting with port %d\n", portNumber);
+                fprintf(stderr, "otp_dec: ERROR connecting with port %d\n", portNumber);
                 exit(2);
             }
 
@@ -173,11 +172,6 @@ int main (int argc, char* argv[]) {
                 error("otp_dec: ERROR sending to socket\n");
             }
 
-            if (charsWritten < strlen(buffer)) {
-                // not all characters sent to socket
-                error("otp_dec: WARNING: Not all data written to socket!\n");
-            }
-
             // clear buffer after sending
             memset(buffer, '\0', 131072);
 
@@ -191,25 +185,25 @@ int main (int argc, char* argv[]) {
             // make sure that server identified itself as "otp_dec_d", reject if not
             if (strcmp(buffer, "dec_d") == 0) {
                 // create strings to store file contents
-                char text[131072];
-                fgets(text, 131072, plaintextFile);
+                char ciphertext[131072];
+                fgets(ciphertext, 131072, ciphertextFile);
 
                 char key[131072];
                 fgets(key, 131072, keyFile);
 
                 // strip newlines
-                text[strcspn(text, "\n")] = '\0';
+                ciphertext[strcspn(ciphertext, "\n")] = '\0';
                 key[strcspn(key, "\n")] = '\0';
 
                 // validate inputs
-                checkIfKeyTooShort(text, key, argv[2]);
-                checkIfContainsBadText(text, key, argv[1], argv[2]);
+                checkIfKeyTooShort(ciphertext, key, argv[2]);
+                checkIfContainsBadText(ciphertext, key, argv[1], argv[2]);
 
-                // clear buffer memory and set to length of text
+                // clear buffer memory and set to length of ciphertext
                 memset(buffer, '\0', 131072);
-                sprintf(buffer, "%zd", strlen(text));
+                sprintf(buffer, "%zd", strlen(ciphertext));
 
-                // send length of plaintext to server, server will verify
+                // send length of ciphertext to server, server will verify
                 charsWritten = send(socketFD, buffer, strlen(buffer), 0);
                 if (charsWritten < 0) {
                     error("otp_dec: ERROR sending to socket\n");
@@ -226,21 +220,21 @@ int main (int argc, char* argv[]) {
                     error("otp_dec: ERROR receiving from socket\n");
                 }
 
-                // create string to store text length for string comparison purposes
-                char textLength[256];
-                memset(textLength, '\0', 256);
-                sprintf(textLength, "%zd", strlen(text));
+                // create string to store ciphertext length for string comparison purposes
+                char ciphertextLength[256];
+                memset(ciphertextLength, '\0', 256);
+                sprintf(ciphertextLength, "%zd", strlen(ciphertext));
 
-                if (strcmp(buffer, textLength) != 0) {
-                    // server did not send back correct text length, throw error
-                    error("otp_dec ERROR: otp_dec_d did not acknowledge sent message\n");
+                if (strcmp(buffer, ciphertextLength) != 0) {
+                    // server did not send back correct ciphertext length, throw error
+                    error("otp_dec: ERROR otp_dec_d did not acknowledge sent message\n");
                 }
 
-                // clear buffer memory and copy plaintext into it
+                // clear buffer memory and copy ciphertext into it
                 memset(buffer, '\0', 131072);
-                strcpy(buffer, text);
+                strcpy(buffer, ciphertext);
 
-                // send plaintext to server
+                // send ciphertext to server
                 charsWritten = send(socketFD, buffer, strlen(buffer), 0);
                 if (charsWritten < 0) {
                     // error sending to socket
@@ -255,9 +249,9 @@ int main (int argc, char* argv[]) {
                     error("otp_dec: ERROR receiving from socket\n");
                 }
 
-                // verify that server got entire plaintext contents
-                if (strcmp(buffer, textLength) != 0) {
-                    error("otp_dec ERROR: otp_dec_d did not receive entire message\n");
+                // verify that server got entire ciphertext contents
+                if (strcmp(buffer, ciphertextLength) != 0) {
+                    error("otp_dec: ERROR otp_dec_d did not receive entire message\n");
                 }
 
                 // clear buffer memory and copy key length into it
@@ -284,7 +278,7 @@ int main (int argc, char* argv[]) {
 
                 // verify that server got the key length
                 if (strcmp(buffer, keyLength) != 0) {
-                    error("otp_dec ERROR: otp_dec_d did not acknowledge sent message\n");
+                    error("otp_dec: ERROR otp_dec_d did not acknowledge sent message\n");
                 }
 
                 // clear buffer memory and copy key into it
@@ -306,15 +300,15 @@ int main (int argc, char* argv[]) {
 
                 // verify that server received entire contents
                 if (strcmp(buffer, keyLength) != 0) {
-                    error("otp_dec ERROR: otp_dec_d did not receive entire message\n");
+                    error("otp_dec: ERROR otp_dec_d did not receive entire message\n");
                 }
 
-                // allocate memory for decrypted string
-                char* decrypted = (char*) calloc(strlen(text), sizeof(char));
+                // allocate memory for plaintext string
+                char* plaintext = (char*) calloc(strlen(ciphertext), sizeof(char));
 
                 // loop until entire message received
                 int charsReceived = 0;
-                while (charsReceived < strlen(text)) {
+                while (charsReceived < strlen(ciphertext)) {
                     // clear out buffer and receive data from socket
                     memset(buffer, '\0', 131072);
                     charsRead = recv(socketFD, buffer, 131071, 0);
@@ -323,16 +317,16 @@ int main (int argc, char* argv[]) {
                         error("otp_dec ERROR receiving data from socket\n");
                     }
 
-                    // no error, cat buffer to decrypted and increment chars received
-                    strcat(decrypted, buffer);
+                    // no error, cat buffer to plaintext and increment chars received
+                    strcat(plaintext, buffer);
                     charsReceived += strlen(buffer);
                 }
 
-                // send decrypted string to stdout
-                printf("%s\n", decrypted);
+                // send plaintext string to stdout
+                printf("%s\n", plaintext);
             } else {
                 // connected to server other than otp_dec_d, throw error and quit
-                error("otp_dec error: socket connection is not to otp_dec_d, closing\n");
+                fprintf(stderr, "otp_dec: ERROR port %d connection is not to otp_dec_d, closing\n", portNumber);
                 exit(2);
             }
 
@@ -344,8 +338,8 @@ int main (int argc, char* argv[]) {
             exit(1);
         }
     } else {
-        // error opening plaintext file
-        fprintf(stderr, "otp_dec: ERROR opening plaintext file %s\n", argv[1]);
+        // error opening ciphertext file
+        fprintf(stderr, "otp_dec: ERROR opening ciphertext file %s\n", argv[1]);
         exit(1);
     }
 

@@ -9,9 +9,9 @@
 // This program runs in the background as a daemon. The
 // program will listen on a particular port/socket to be
 // determined by the user as a runtime argument.
-// The program will receive an encrypted string and key
-// which will be used to decode the encrupted text into
-// plaintext. The plaintext string will be returned
+// The program will receive a ciphertext string and key
+// which will be used to decode the ciphertext into
+// plaintext. The plaintext will be returned
 // to the client.
 // #####################################################
 */
@@ -30,26 +30,26 @@ typedef enum { false, true } bool;
 /*
 ** decrypt Function
 ** ----------------------------------------------------
-** function to decrypt encrypted text using a key
-** params: string encryptedText, string key
+** function to decrypt ciphertext using a key
+** params: string ciphertext, string key
 ** returns: string plaintext
 ** ----------------------------------------------------
 */
-char* decrypt(char* encryptedText, char* key) {
-    // allocate int array of same length as encryptedText to be decoded
-    int* textNums = (int*) calloc(strlen(encryptedText), sizeof(int));
+char* decrypt(char* ciphertext, char* key) {
+    // allocate int array of same length as ciphertext to be decoded
+    int* ciphertextNums = (int*) calloc(strlen(ciphertext), sizeof(int));
 
     // iterator variable
     int i;
 
-    // loop through encryptedText string, copying ascii code to textNums array
-    for (i = 0; i < strlen(encryptedText); i++) {
-        // if space, add 26 to encryptedText array
-        if (encryptedText[i] == 32) {
-            textNums[i] = 26;
+    // loop through ciphertext string, copying char code to ciphertextNums array
+    for (i = 0; i < strlen(ciphertext); i++) {
+        // if space, add 26 to ciphertextNums array
+        if (ciphertext[i] == 32) {
+            ciphertextNums[i] = 26;
         } else {
             // not space, subtract 65 from ascii code so that 0-25 are letter codes
-            textNums[i] = encryptedText[i] - 65;
+            ciphertextNums[i] = ciphertext[i] - 65;
         }
     }
 
@@ -67,12 +67,13 @@ char* decrypt(char* encryptedText, char* key) {
         }
     }
 
-    // allocate int array of same length as text to be decoded
-    int* modulo = (int*) calloc(strlen(encryptedText), sizeof(int));
+    // allocate int array of same length as ciphertext to be decoded
+    int* modulo = (int*) calloc(strlen(ciphertext), sizeof(int));
 
-    // loop through array, subtract key values from encrypted values then modulo 27
-    for (i = 0; i < strlen(encryptedText); i++) {
-        modulo[i] = (textNums[i] - keyNums[i]);
+    // loop through array, subtract key values from ciphertext values then modulo 27
+    for (i = 0; i < strlen(ciphertext); i++) {
+        modulo[i] = (ciphertextNums[i] - keyNums[i]);
+        // if negative, add 27 until key value is >= 0
         while (modulo[i] < 0) {
             modulo[i] += 27;
         }
@@ -80,14 +81,14 @@ char* decrypt(char* encryptedText, char* key) {
     }
 
     // allocate memory for decoded string
-    char* decoded = (char*) calloc(strlen(encryptedText), sizeof(char));
+    char* decoded = (char*) calloc(strlen(ciphertext), sizeof(char));
 
-    // loop through length of encryptedText and add decrypted char to decoded string
-    for (i = 0; i < strlen(encryptedText); i++) {
+    // loop through length of ciphertext and add decoded char to decoded string
+    for (i = 0; i < strlen(ciphertext); i++) {
         // get code of current char from modulo array
         int code = modulo[i];
 
-        // if current char code represents a space, set to 32 (ascii code for space)
+        // current char code represents a space, set to 32 (ascii code for space)
         if (code == 26) {
             decoded[i] = 32;
         } else {
@@ -96,9 +97,10 @@ char* decrypt(char* encryptedText, char* key) {
         }
     }
 
-    // return encrypted string to calling function
+    // return decoded string to calling function
     return decoded;
 }
+
 
 /*
 ** error Function
@@ -109,20 +111,90 @@ char* decrypt(char* encryptedText, char* key) {
 ** ----------------------------------------------------
 */
 void error(const char* error) {
-    fprintf(stderr, error);
+    fprintf(stderr, "%s", error);
 }
+
+
+/*
+** checkIfKeyTooShort Function
+** ----------------------------------------------------
+** function to check if the key is shorter than the ciphertext
+** throws an error and exits if key is too short
+** params: string ciphertext, string key, string keyFile
+** returns: void
+** ----------------------------------------------------
+*/
+void checkIfKeyTooShort(char* ciphertext, char* key, char* keyFile) {
+    // if length of key is less than length of ciphertext, print error and exit
+    if (strlen(key) < strlen(ciphertext)) {
+        fprintf(stderr, "otp_dec_d: ERROR key '%s' is too short\n", keyFile);
+        exit(1);
+    }
+}
+
+
+/*
+** checkIfContainsBadText Function
+** ----------------------------------------------------
+** function to check if the ciphertext or key contain any
+** characters that are considered "bad" input. Any character
+** other than capital A-Z or space is considered "bad" data
+** params: string ciphertext, string key, string ciphertextFile, string keyFile
+** returns: void
+** ----------------------------------------------------
+*/
+void checkIfContainsBadText(char* ciphertext, char* key, char* ciphertextFile, char* keyFile) {
+    // iterator variable
+    int i;
+
+    // loop through ciphertext to see if it contains bad input
+    for (i = 0; i < strlen(ciphertext); i++) {
+        // if any character is not A-Z or a space, it is bad input
+        if (ciphertext[i] != 32 && (ciphertext[i] < 65 || ciphertext[i] > 90)) {
+            fprintf(stderr, "otp_dec_d: ERROR ciphertext '%s' contains bad characters\n", ciphertextFile);
+            exit(1);
+        }
+    }
+
+    // loop through key to see if it contains bad input
+    for (i = 0; i < strlen(key); i++) {
+        // if any character is not A-Z or a space, it is bad input
+        if (key[i] != 32 && (key[i] < 65 || key[i] > 90)) {
+            fprintf(stderr, "otp_dec_d: ERROR key '%s' contains bad characters\n", keyFile);
+            exit(1);
+        }
+    }
+}
+
+
+/*
+** inputIsValid Function
+** ----------------------------------------------------
+** function to verify that the provided ciphertext and key
+** files are valid according to program specifications
+** params: string ciphertext, string key
+** returns: true if valid, false if not
+** ----------------------------------------------------
+*/
+void inputIsValid(char* ciphertext, char* key, char* ciphertextFile, char* keyFile) {
+    // if key is shorter than ciphertext, display error and exit
+    checkIfKeyTooShort(ciphertext, key, keyFile);
+    // if bad input, display error and exit
+    checkIfContainsBadText(ciphertext, key, ciphertextFile, keyFile);
+}
+
 
 /*
 ** main
 ** ----------------------------------------------------
 ** main function that accepts connections from clients
-** and decodes the encrpyted string using the provided key
+** and decodes the ciphertext string using the provided key
 ** ----------------------------------------------------
 */
 int main(int argc, char* argv[]) {
     // if incorrect number of arguments, display correct usage to user and quit
     if (argc != 2) {
-        fprintf(stderr, "USAGE: otp_dec_d <listening_port>\n");
+        error("USAGE: otp_dec_d <listening_port>\n");
         return 1;
     }
 
@@ -152,13 +224,13 @@ int main(int argc, char* argv[]) {
     // set up socket
     listenSocketFD = socket(AF_INET, SOCK_STREAM, 0);
     if (listenSocketFD < 0) {
-        error("SERVER: ERROR opening socket\n");
+        error("otp_dec_d: ERROR opening socket\n");
         exit(1);
     }
 
     // bind the socket so that we can start listening
     if (bind(listenSocketFD, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
-        error("SERVER: ERROR binding socket\n");
+        error("otp_dec_d: ERROR binding socket\n");
         exit(1);
     }
 
@@ -173,164 +245,171 @@ int main(int argc, char* argv[]) {
 
         // error when accepting conection
         if (establishedConnectionFD < 0) {
-            error("SERVER: ERROR accepting connection from socket\n");
-            exit(1);
-        }
+            error("otp_dec_d: ERROR accepting connection from socket\n");
+        } else {
+            // connection successful, create new thread
+            childPid = fork();
 
-        // connection successful, create new thread
-        childPid = fork();
+            // child process, handle rest of transaction here
+            if (childPid == 0) {
+                char* ciphertext;
+                char* key;
 
-        // child process, handle rest of transaction here
-        if (childPid == 0) {
-            char* ciphertext;
-            char* key;
-
-            // clear out buffer
-            memset(buffer, '\0', 131072);
-
-            // receive data from socket
-            charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
-            if (charsRead < 0) {
-                // error receiving data from socket
-                error("SERVER: ERROR receiving data from socket\n");
-            }
-
-            // no error, make sure connection originates from otp_dec
-            if (strcmp(buffer, "dec") == 0) {
-                // connection is from otp_dec, clear out buffer and set to "dec_d" to send back to client
+                // clear out buffer
                 memset(buffer, '\0', 131072);
-                strcpy(buffer, "dec_d");
 
-                // send buffer to client
-                charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
-                if (charsWritten < 0) {
-                    // error sending data to socket
-                    error("SERVER: ERROR sending data to socket\n");
-                }
-
-                // no error, get length of ciphertext from client
-
-                // clear buffer and receive ciphertext length from socket
-                memset(buffer, '\0', 131072);
+                // receive data from socket
                 charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
-
                 if (charsRead < 0) {
                     // error receiving data from socket
-                    error("SERVER: ERROR receiving data from socket\n");
+                    error("otp_dec_d: ERROR receiving data from socket\n");
                 }
 
-                // no error, get length of ciphertext and return to client for verification
-                int ciphertextLength = atoi(buffer);
-                memset(buffer, '\0', 131072);
-                sprintf(buffer, "%d", ciphertextLength);
+                // no error, make sure connection originates from otp_dec
+                if (strcmp(buffer, "dec") == 0) {
+                    // connection is from otp_dec, clear out buffer and set to "dec_d" to send back to client
+                    memset(buffer, '\0', 131072);
+                    strcpy(buffer, "dec_d");
 
-                // send length back to client
-                charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
-                if (charsWritten < 0) {
-                    // error sending data to socket
-                    error("SERVER: ERROR sending data to socket\n");
-                }
+                    // send buffer to client
+                    charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
+                    if (charsWritten < 0) {
+                        // error sending data to socket
+                        error("otp_dec_d: ERROR sending data to socket\n");
+                    }
 
-                // variables to store ciphertext and keep track of received characters
-                ciphertext = calloc(ciphertextLength + 1, sizeof(char));
-                int charsReceived = 0;
+                    // no error, get length of ciphertext from client
 
-                // while still receiving characters
-                while (charsReceived < ciphertextLength) {
-                    // clear out buffer and receive data from socket
+                    // clear buffer and receive ciphertext length from socket
+                    memset(buffer, '\0', 131072);
+                    charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
+
+                    if (charsRead < 0) {
+                        // error receiving data from socket
+                        error("otp_dec_d: ERROR receiving data from socket\n");
+                    }
+
+                    // no error, get length of ciphertext and return to client for verification
+                    int ciphertextLength = atoi(buffer);
+                    memset(buffer, '\0', 131072);
+                    sprintf(buffer, "%d", ciphertextLength);
+
+                    // send length back to client
+                    charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
+                    if (charsWritten < 0) {
+                        // error sending data to socket
+                        error("otp_dec_d: ERROR sending data to socket\n");
+                    }
+
+                    // variables to store ciphertext and keep track of received characters
+                    ciphertext = (char*) calloc(ciphertextLength + 1, sizeof(char));
+                    int charsReceived = 0;
+
+                    // while still receiving characters
+                    while (charsReceived < ciphertextLength) {
+                        // clear out buffer and receive data from socket
+                        memset(buffer, '\0', 131072);
+                        charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
+                        if (charsRead < 0) {
+                            // error receiving data from socket
+                            error("otp_dec_d: ERROR receiving data from socket\n");
+                        }
+
+                        // no error, cat buffer to ciphertext and increment chars received
+                        strcat(ciphertext, buffer);
+                        charsReceived += strlen(buffer);
+                    }
+
+                    // clear buffer and set to number of received characters
+                    memset(buffer, '\0', 131072);
+                    sprintf(buffer, "%d", charsReceived);
+
+                    // send length back to client
+                    charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
+                    if (charsWritten < 0) {
+                        // error sending data to socket
+                        error("otp_dec_d: ERROR sending data to socket\n");
+                    }
+
+                    // clear buffer and receive key length from socket
                     memset(buffer, '\0', 131072);
                     charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
                     if (charsRead < 0) {
                         // error receiving data from socket
-                        error("SERVER: ERROR receiving data from socket\n");
+                        error("otp_dec_d: ERROR receiving data from socket\n");
                     }
 
-                    // no error, cat buffer to ciphertext and increment chars received
-                    strcat(ciphertext, buffer);
-                    charsReceived += strlen(buffer);
-                }
-
-                // clear buffer and set to number of received characters
-                memset(buffer, '\0', 131072);
-                sprintf(buffer, "%d", charsReceived);
-
-                // send length back to client
-                charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
-                if (charsWritten < 0) {
-                    // error sending data to socket
-                    error("SERVER: ERROR sending data to socket\n");
-                }
-
-                // clear buffer and receive key length from socket
-                memset(buffer, '\0', 131072);
-                charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
-                if (charsRead < 0) {
-                    // error receiving data from socket
-                    error("SERVER: ERROR receiving data from socket\n");
-                }
-
-                // no error, get length of key and return to client for verification
-                int keyLength = atoi(buffer);
-                memset(buffer, '\0', 131072);
-                sprintf(buffer, "%d", keyLength);
-
-                // send length back to client
-                charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
-                if (charsWritten < 0) {
-                    // error sending data to socket
-                    error("SERVER: ERROR sending data to socket\n");
-                }
-
-                // create variables to store key and keep track of received characters
-                key = calloc(keyLength + 1, sizeof(char));
-                charsReceived = 0;
-
-                // while still receiving characters
-                while (charsReceived < keyLength) {
-                    // clear out buffer and receive data from socket
+                    // no error, get length of key and return to client for verification
+                    int keyLength = atoi(buffer);
                     memset(buffer, '\0', 131072);
-                    charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
-                    if (charsRead < 0) {
-                        // error receiving data from socket
-                        error("SERVER: ERROR receiving data from socket\n");
+                    sprintf(buffer, "%d", keyLength);
+
+                    // send length back to client
+                    charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
+                    if (charsWritten < 0) {
+                        // error sending data to socket
+                        error("otp_dec_d: ERROR sending data to socket\n");
                     }
 
-                    // no error, cat buffer to key and increment chars received
-                    strcat(key, buffer);
-                    charsReceived += strlen(buffer);
+                    // create variables to store key and keep track of received characters
+                    key = (char*) calloc(keyLength + 1, sizeof(char));
+                    charsReceived = 0;
+
+                    // while still receiving characters
+                    while (charsReceived < keyLength) {
+                        // clear out buffer and receive data from socket
+                        memset(buffer, '\0', 131072);
+                        charsRead = recv(establishedConnectionFD, buffer, 131071, 0);
+                        if (charsRead < 0) {
+                            // error receiving data from socket
+                            error("otp_dec_d: ERROR receiving data from socket\n");
+                        }
+
+                        // no error, cat buffer to key and increment chars received
+                        strcat(key, buffer);
+                        charsReceived += strlen(buffer);
+                    }
+
+                    // clear buffer and set to number of received characters
+                    memset(buffer, '\0', 131072);
+                    sprintf(buffer, "%d", charsReceived);
+
+                    // send length back to client
+                    charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
+                    if (charsWritten < 0) {
+                        // error sending data to socket
+                        error("otp_dec_d: ERROR sending data to socket\n");
+                    }
+
+                    // decrypt ciphertext and copy to buffer to send back to client
+                    memset(buffer, '\0', 131072);
+                    strcpy(buffer, decrypt(ciphertext, key));
+
+                    // send decrypted string back to client
+                    charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
+                    if (charsWritten < 0) {
+                        // error sending data to socket
+                        error("otp_dec_d: ERROR sending data to socket\n");
+                    }
+                } else {
+                    // connection did not originate from otp_dec, ignore
+                    memset(buffer, '\0', 131072);
+                    strcpy(buffer, "dec_d");
+
+                    // send identifier string back to client
+                    charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
+                    if (charsWritten < 0) {
+                        // error sending data to socket
+                        error("otp_dec_d: ERROR sending data to socket\n");
+                    }
                 }
 
-                // clear buffer and set to number of received characters
-                memset(buffer, '\0', 131072);
-                sprintf(buffer, "%d", charsReceived);
+                // close communication socket
+                close(establishedConnectionFD);
 
-                // send length back to client
-                charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
-                if (charsWritten < 0) {
-                    // error sending data to socket
-                    error("SERVER: ERROR sending data to socket\n");
-                }
-
-                // decrypt ciphertext and copy to buffer to send back to client
-                memset(buffer, '\0', 131072);
-                strcpy(buffer, decrypt(ciphertext, key));
-
-                // send decrypted string back to client
-                charsWritten = send(establishedConnectionFD, buffer, strlen(buffer), 0);
-                if (charsWritten < 0) {
-                    // error sending data to socket
-                    error("SERVER: ERROR sending data to socket\n");
-                }
-            } else {
-                // connection did not originate from otp_dec, ignore
-                error("This connection did not originate from otp_dec");
+                // exit child process with status 0
+                exit(0);
             }
-
-            // close communication socket
-            close(establishedConnectionFD);
-
-            // exit child process with status 0
-            exit(0);
         }
     }
 
